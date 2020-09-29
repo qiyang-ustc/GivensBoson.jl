@@ -3,6 +3,9 @@ uuid = "13133e6c-7787-440b-86dd-4b1178ab9020"
 authors = ["Qi Yang <qiyang@mail.ustc.edu.cn> and contributors"]
 version = "0.1.0"
 
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
 [compat]
 julia = "1"
 

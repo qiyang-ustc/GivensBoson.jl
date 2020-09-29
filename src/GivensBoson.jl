@@ -1,8 +1,10 @@
 module GivensBoson
-
-# Write your package code here.
+export given_eigen_solver
 using LinearAlgebra
 macro output(printf)
+    if !isdefined(Main,:(runmode))
+        runmode = "Can Output"
+    end
     if runmode == "Disable Output"
         return nothing
     else
