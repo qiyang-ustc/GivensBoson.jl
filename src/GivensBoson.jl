@@ -48,7 +48,7 @@ function deal_too_large_element_in_G!(ih::Matrix,G::Matrix;tol_max = 1000.0,tol_
     end
 end
 
-function given_eigen_solver(ih::Matrix;max_iter=100000,tol=1E-8)
+function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-8)
     N = Int(size(ih)[1]/2)
     G = diagm([1.0 for i=1:2N])
     for iter = 1:max_iter
@@ -61,11 +61,11 @@ function given_eigen_solver(ih::Matrix;max_iter=100000,tol=1E-8)
         # @show temp_max,index
         given_transform!(ih,G,i,j)
         # deal_too_large_element_in_G!(ih,G)
-
         # display(transpose(G)*Hamiltonian(adj)*G.-ih)
     end
     @output print("Largest off-diagonal element is")
-    @output display(ih - diagm(diag(ih)))
+    off_diag_ih = ih - diagm(diag(ih))
+    @output display(off_diag_ih)
     return ih,G
 end
 
