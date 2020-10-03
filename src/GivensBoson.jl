@@ -1,31 +1,31 @@
 module GivensBoson
 export given_eigen_solver
 using LinearAlgebra
-macro output(printf)
-    if !isdefined(Main,:(runmode))
-        runmode = "Can Output"
-    end
-    if runmode == "Disable Output"
-        return nothing
-    else
-        return :($printf)
-    end
-end
+# macro output(printf)
+#     if !isdefined(Main,:(runmode))
+#         runmode = "Can Output"
+#     end
+#     if runmode == "Disable Output"
+#         return nothing
+#     else
+#         return :($printf)
+#     end
+# end
 
-function find_offdiagnoal_maximun(ih::Matrix)
+function find_offdiagnoal_maximun(ih::Matrix) #use 
     N = Int(size(ih)[1]/2)
     index = [1,1]
     temp_max = 0.0
-    for i = 1:2N
-        for j = i+1:2N
-            if abs(ih[i,j])>abs(temp_max)
-                temp_max = ih[i,j]
+    @inbounds for i = 1:2N
+        @inbounds for j = i+1:2N
+            t = abs(ih[i,j])
+            if t>temp_max
+                temp_max = t
                 index = [i,j]
             end
         end
     end
-    # @show temp_max
-    return temp_max,index
+    return ih[index...],index
 end
 
 function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int) # keep i<j
@@ -54,7 +54,7 @@ function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-8)
     for iter = 1:max_iter
         temp_max,index = find_offdiagnoal_maximun(ih)
         if abs(temp_max) < tol
-            @output print("iter<max_iter, converge!")
+            # @output print("iter<max_iter, converge!")
             return ih,G
         end
         i,j = index
@@ -63,9 +63,9 @@ function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-8)
         # deal_too_large_element_in_G!(ih,G)
         # display(transpose(G)*Hamiltonian(adj)*G.-ih)
     end
-    @output print("Largest off-diagonal element is")
+    # @output print("Largest off-diagonal element is")
     off_diag_ih = ih - diagm(diag(ih))
-    @output display(off_diag_ih)
+    # @output display(off_diag_ih)
     return ih,G
 end
 
