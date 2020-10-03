@@ -3,7 +3,7 @@ using Test
 using LinearAlgebra
 @testset "GivensBoson.jl" begin
     N = 10
-    ϵ = 1E-7
+    ϵ = 1E-11
     A = rand(2*N,2*N)
     A = transpose(A)*A
     origin_A = copy(A)
