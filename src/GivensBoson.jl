@@ -93,7 +93,7 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
     #@show c,s
     temp_G = temp_space
     # G .= G*temp_G
-    @inbounds @simd for id = 1:2N
+    @inbounds  for id = 1:2N
         temp_space[id,i] =  c*G[id,i] 
         temp_space[id,i] += s*G[id,j]
         temp_space[id,j] =  c*G[id,j] 
@@ -104,7 +104,7 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
     # H .= temp_G*H*temp_G
     # #effect of temp_G
     temp_G .= H # save memry
-    @inbounds @simd for id = 1:2N
+    @inbounds  for id = 1:2N
         temp_G[i,id] = c*H[i,id] 
         temp_G[i,id] += s*H[j,id]   
         temp_G[j,id] = c*H[j,id]
@@ -141,7 +141,7 @@ function given_normal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Ma
     temp_G = temp_space
     
     # G .= G*temp_G
-    @inbounds @simd for id = 1:2N
+    @inbounds  for id = 1:2N
         temp_space[id,i] =  c*G[id,i] 
         temp_space[id,i] -= s*G[id,j]
         temp_space[id,j] =  c*G[id,j] 
@@ -153,7 +153,7 @@ function given_normal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Ma
     # @show H[i,j]
     # effect of temp_G
     temp_G .= H # save memry
-    @inbounds @simd for id = 1:2N
+    @inbounds  for id = 1:2N
         temp_G[i,id] = c*H[i,id] 
         temp_G[i,id] -= s*H[j,id]   
         temp_G[j,id] = c*H[j,id]
