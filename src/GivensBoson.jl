@@ -170,4 +170,7 @@ function given_normal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Ma
     # H .= transpose(tt)*H*tt
 end
 
+include("./ReCanonicalize.jl")
+export recanonicalize
+
 end

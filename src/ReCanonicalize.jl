@@ -1,13 +1,13 @@
 using LinearAlgebra
 
-inner_product(V1::Vector,V2::Vector,η::Matrix) = (transpose(V2)*η*V1)[1]
-inner_product(V::Vector,η::Matrix) = (transpose(V)*η*V)[1]
+inner_product(V1::Vector,V2::Vector,η::Matrix) = (adjoint(V2)*η*V1)[1]
+inner_product(V::Vector,η::Matrix) = (adjoint(V)*η*V)[1]
 function normalization!(V::Matrix,i::Int,η::Matrix)
     c = inner_product(V[:,i],η)
-    if c < 1E-8
+    if abs(c) < 1E-8
         nothing
     else
-        V[:,i] .=  V[:,i]./sqrt(inner_product(V[:,i],η))
+        V[:,i] .=  V[:,i]./sqrt(c)
     end
 end
 
@@ -16,7 +16,7 @@ function gram_schmit(V::Matrix,s::Int,e::Int,η::Matrix)
     normalization!(V,s,η)
     for i = s+1:1:e
         for j = s:1:i-1
-            V[:,i] .-= inner_product(V[:,j],V[:,i],η).*V[:,j]
+            V[:,i] .-= inner_product(V[:,i],V[:,j],η).*V[:,j]
         end
         normalization!(V,i,η)
     end
@@ -25,13 +25,31 @@ end
 
 generate_metric(N::Int) = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
 
+function process_complex!(tS::Vector,tV::Matrix)
+    tS .= real.(tS)
+    flag = 1
+    for i = 1:size(tV)[1]
+        if sum(abs.(imag.(tV[:,i])))!=0
+            if flag % 2 != 0
+                tV[:,i] .= 2.0 .*real.(tV[:,i])
+            else
+                tV[:,i] .= 2.0 .*imag.(tV[:,i])
+            end
+            flag = flag+1
+        end
+    end
+    tV .= real(tV)
+end
+
 function recanonicalize(h::Matrix,hamiltonian_type::String;tol=1E-10)
     N = Int(size(h)[1]/2)
     η = generate_metric(N)
-    ih = η*h
-    tS,tV = eigen(ih)
-    @show norm(imag.(tS))
-    @show norm(imag.(tV))
+    ih = η*h 
+    # S, V = eigen(h) # #TODO: EXPALIN IN MEETING S = [-3.454206332875306e-11, -3.4541994235883824e-11, 9.135733651675401e-8, 9.135733809775541e-8, 0.9999999999999786, 0.9999999999999795, 1.0000000000000218, 1.000000000000022]
+    # @show S
+    tS,tV = eigen(ih)  # this step will give complex tS and tV.... let's deal with them....
+    process_complex!(tS,tV)
+    tS,tV = real(tS),real(tV)
     S,V = copy(tS),copy(tV)
     for i = 1:N
         S[i] = tS[N+i]
@@ -42,10 +60,10 @@ function recanonicalize(h::Matrix,hamiltonian_type::String;tol=1E-10)
     
     start_flag = 1
     end_flag = 1
-    while end_flag <= N
+    while start_flag <= N
         end_flag = start_flag
         for i = start_flag+1:N
-            if abs(S[start_flag]-S[i]) < tol
+            if real(S[start_flag]-S[i]) < tol
                 end_flag = i
             else
                 break
