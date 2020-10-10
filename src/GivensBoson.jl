@@ -1,16 +1,6 @@
 module GivensBoson
 export given_eigen_solver
 using LinearAlgebra
-# macro output(printf)
-#     if !isdefined(Main,:(runmode))
-#         runmode = "Can Output"
-#     end
-#     if runmode == "Disable Output"
-#         return nothing
-#     else
-#         return :($printf)
-#     end
-# end
 
 function find_offdiagnoal_maximun(ih::Matrix;tol = 1E-13) #use 
     N = Int(size(ih)[1]/2)
@@ -21,7 +11,7 @@ function find_offdiagnoal_maximun(ih::Matrix;tol = 1E-13) #use
         @inbounds for j = i+1:2N
             t = abs(ih[i,j])
             if t>temp_max
-                if abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.5
+                if abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.45
                     abnormal_index = [i,j]
                 else
                     temp_max = t
@@ -84,23 +74,18 @@ function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-13,zeromode=false
         temp_max,index = find_offdiagnoal_maximun(ih;tol)
         # print(temp_max,index,'\n')
         if abs(temp_max) < tol
-            # @output print("iter<max_iter, converge!")
             if zeromode
                 deal_zeromodes!(G)
             end
             return ih,G
         end
         i,j = index
-        # @show temp_max,index
         given_transform!(ih,G,i,j,temp_space)
     end
-    # @output print("Largest off-diagonal element is")
     print("Iteration doesnot converge!\n")
     if zeromode
         deal_zeromodes!(G)
     end
-    # off_diag_ih = ih - diagm(diag(ih))
-    # @output display(off_diag_ih)
     return ih,G
 end
 
@@ -123,6 +108,7 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
     #     print("\n\n\n")
     # end
     if  abs(t) > 0.9999999
+            # display([H[i,i] H[i,j];H[j,i] H[j,j]])
         # if abs(find_offdiagnoal_second_maximun(H))<1E-9 #zero mode
             H[i,j] = 0
             H[j,i] = 0
@@ -220,7 +206,8 @@ function given_normal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Ma
     # H .= transpose(tt)*H*tt
 end
 
-include("./ReCanonicalize.jl")
-export recanonicalize
+# ReCanonicalize is not polished!!!
+# include("./ReCanonicalize.jl")
+# export recanonicalize
 
 end

@@ -16,7 +16,7 @@ using LinearAlgebra
 end
 
 @testset "GivensBoson -Schwinger Boson -zero-mode" begin
-for N = 2:2:12
+for N = 4:4:40
     A = 1
     λ = 1
     bc = "PBC"
@@ -37,7 +37,7 @@ for N = 2:2:12
         Q = Q/2.0
         Q
     end
-    ϵ = 1E-12
+    ϵ = 5*1E-10
     Lambda = diagm([λ for i = 1:N])
     M = [Lambda Q;transpose(Q) Lambda]
     A = M
@@ -45,6 +45,7 @@ for N = 2:2:12
     S,V = given_eigen_solver(A,zeromode=(N%4==0))
     η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
     test_η = transpose(V)*η*V
+    @test abs(sum(abs.(test_η-η))-4)< 1E-8 # 4 zero modes check
     if N%4 == 0 && bc == "PBC"
         for i = 1:2N
             if abs(test_η[i,i])<1E-10
