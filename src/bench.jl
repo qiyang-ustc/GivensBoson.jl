@@ -1,14 +1,16 @@
-using GivensBoson 
+# using GivensBoson 
 using LinearAlgebra
+include("./GivensBoson.jl")
+using Main.GivensBoson
 
-Nrange = 2:2:30
+Nrange = 4:4:4
 result = zeros(size(Nrange)[1],4)
 for id in CartesianIndices(Nrange)
     N = Nrange[id]
     ϵ = 1E-11
     A = 1
     λ = 1
-    bc = "OBC"
+    bc = "PBC"
     begin
         Q = zeros(N,N)
         for id in CartesianIndices((1:N,1:N))
@@ -26,21 +28,32 @@ for id in CartesianIndices(Nrange)
         Q = Q/2.0
         Q
     end
-    ϵ = 1E-4
+    ϵ = 1E-10
     Lambda = diagm([λ for i = 1:N])
     M = [Lambda Q;transpose(Q) Lambda]
     A = M
-    A = rand(2N,2N)
-    A = transpose(A)*A
     origin_A = copy(A)
-    S,V = recanonicalize(A,"AntiSymmetry")
+    # S,V = recanonicalize(A,"AntiSymmetry")
+    S,V = given_eigen_solver(A,zeromode=true)
+
     η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
     result[id,1]=N
-    result[id,2]=norm(transpose(V)*η*V-η)
-    # result[id,3]=norm(S-diagm(S))
-    result[id,4]=norm(transpose(V)*origin_A*V-diagm(S))
+    if N%4 == 0
+        t = transpose(V)*η*V
+        for i = 1:2N
+            if abs(t[i,i])<1E-10
+                t[i,i] = i>N ? -1.0 : 1.0
+            end
+        end
+    end
+    # display(t)
+    result[id,2]=norm(t-η)
+    result[id,3]=norm(S-diagm(diag(S)))
+    result[id,4]=norm(transpose(V)*origin_A*V-S)
     # if N == 12
-    #     vscodedisplay(V)
+        display(V)
+        display(transpose(V)*origin_A*V-S)
     # end
 end
-vscodedisplay(result)
+# vscodedisplay(result)
+display(result)

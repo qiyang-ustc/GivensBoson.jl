@@ -12,20 +12,50 @@ using LinearAlgebra
 #     end
 # end
 
-function find_offdiagnoal_maximun(ih::Matrix) #use 
+function find_offdiagnoal_maximun(ih::Matrix;tol = 1E-13) #use 
     N = Int(size(ih)[1]/2)
     index = [1,1]
     temp_max = 0.0
+    abnormal_index = [1,1]
+    @inbounds for i = 1:2N
+        @inbounds for j = i+1:2N
+            t = abs(ih[i,j])
+            if t>temp_max
+                if abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.5
+                    abnormal_index = [i,j]
+                else
+                    temp_max = t
+                    index = [i,j]
+                end    
+            end
+        end
+    end
+    if temp_max<tol 
+        if abnormal_index!=[1,1]
+            index = abnormal_index
+            return ih[index...],index
+        else
+            return ih[1,2],[1,2]
+        end
+    end
+    return ih[index...],index
+end
+
+function find_offdiagnoal_second_maximun(ih::Matrix) #use 
+    N = Int(size(ih)[1]/2)
+    index = [1,1]
+    temp_max = 0.0
+    temp_second = 0.0
     @inbounds for i = 1:2N
         @inbounds for j = i+1:2N
             t = abs(ih[i,j])
             if t>temp_max
                 temp_max = t
-                index = [i,j]
+                temp_second = temp_max
             end
         end
     end
-    return ih[index...],index
+    return temp_second
 end
 
 function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) # keep i<j
@@ -37,37 +67,39 @@ function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) 
     end
 end
 
-function deal_too_large_element_in_G!(ih::Matrix,G::Matrix;tol_max = 1000.0,tol_min=1E-7) #TODO: throw all tol_min eigen value 
-    #We shouldn't use this function which will break the canonicalization of transformm!!!!!
-    max_set = maximum(abs.(G),dims=1)
-    for i = 1:length(max_set)
-        # @show norm(ih*G[:,i])/norm(G[:,i])
-        if max_set[i] > tol_max && norm(ih*G[:,i])/norm(G[:,i])<tol_min
-            @inbounds for id = 1:2N
-                G[id,i] /= max_set[i]
-            end
+function deal_zeromodes!(G::Matrix;tol_max = 1000.0)
+    N = Int(size(G)[1]/2)
+    for i =1:2N
+        if maximum(G[:,i])>tol_max
+            G[:,i] .= sign.(G[:,i])*0.5
         end
     end
 end
 
-function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-13)
+function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-13,zeromode=false)
     N = Int(size(ih)[1]/2)
     G = diagm([1.0 for i=1:2N])
     temp_space = zeros(Float64,2N,2N)
     @inbounds for iter = 1:max_iter
-        temp_max,index = find_offdiagnoal_maximun(ih)
+        temp_max,index = find_offdiagnoal_maximun(ih;tol)
+        # print(temp_max,index,'\n')
         if abs(temp_max) < tol
             # @output print("iter<max_iter, converge!")
+            if zeromode
+                deal_zeromodes!(G)
+            end
             return ih,G
         end
         i,j = index
         # @show temp_max,index
         given_transform!(ih,G,i,j,temp_space)
-        # deal_too_large_element_in_G!(ih,G)
-        # display(transpose(G)*Hamiltonian(adj)*G.-ih)
     end
     # @output print("Largest off-diagonal element is")
-    off_diag_ih = ih - diagm(diag(ih))
+    print("Iteration doesnot converge!\n")
+    if zeromode
+        deal_zeromodes!(G)
+    end
+    # off_diag_ih = ih - diagm(diag(ih))
     # @output display(off_diag_ih)
     return ih,G
 end
@@ -85,8 +117,26 @@ end
 function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix)
     N = Int(size(H)[1]/2)
     t = -2H[i,j]/(H[j,j]+H[i,i])
-    if  abs(t) > 0.9999
-        t = sign(t)*0.9999
+    # if atanh(t)>1
+    #     print(i,'\t',j,"\n")
+    #     display(H)
+    #     print("\n\n\n")
+    # end
+    if  abs(t) > 0.9999999
+        # if abs(find_offdiagnoal_second_maximun(H))<1E-9 #zero mode
+            H[i,j] = 0
+            H[j,i] = 0
+            H[i,i] = 0
+            H[j,j] = 0
+            H[i,:] .= 0 
+            H[j,:] .= 0 
+            H[:,i] .= 0 
+            H[:,j] .= 0 
+            G[:,i] .= sign.(G[:,i])*0.5
+            G[:,j] .= sign.(G[:,i])*0.5
+            return nothing
+        # end
+        t = sign(t)*0.9999999
     end
     θ = 0.5*atanh(t)
     c,s = cosh(θ),sinh(θ)
