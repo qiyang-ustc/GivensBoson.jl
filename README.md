@@ -12,7 +12,8 @@ julia>]add https://github.com/qiyang-ustc/GivensBoson.jl
 
 ## Note:
 ```
-julia>  A = rand(2*N,2*N); 
+julia>  N = 10;
+        A = rand(2*N,2*N); 
         A = transpose(A)*A; # symmetric bosonic hamiltonian
         origin_A = copy(A)
         S,V = given_eigen_solver(A);
