@@ -57,7 +57,7 @@ function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) 
     end
 end
 
-function deal_zeromodes!(G::Matrix;tol_max = 1000.0)
+function deal_zeromodes!(G::Matrix;tol_max = 10.0)
     N = Int(size(G)[1]/2)
     for i =1:2N
         if maximum(G[:,i])>tol_max
