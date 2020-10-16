@@ -23,7 +23,7 @@ using LinearAlgebra
 end
 
 @testset "GivensBoson -Schwinger Boson PBC" begin
-for N = 4:2:128
+for N = 4:2:100
     A = 1
     λ = 1
     bc = "PBC"

@@ -57,7 +57,7 @@ function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) 
     end
 end
 
-function deal_zeromodes!(G::Matrix;tol_max = 10.0)
+function deal_zeromodes!(G::Matrix;tol_max = 1000.0)
     N = Int(size(G)[1]/2)
     for i =1:2N
         if maximum(G[:,i])>tol_max
@@ -70,7 +70,7 @@ end
 This function return a prepared G to make iteration steps converge much faster
 """
     
-function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 1000,hamiltonian_type = "Symmetry")
+function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 100,hamiltonian_type = "Symmetry")
     N = Int(size(ih)[1]/2)
     η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
     # S,V = eigen(η*ih)
