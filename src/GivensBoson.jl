@@ -66,11 +66,54 @@ function deal_zeromodes!(G::Matrix;tol_max = 1000.0)
     end
 end
 
-function given_eigen_solver(ih::Matrix ;max_iter=100000,tol=1E-13,zeromode=false)
+"""
+This function return a prepared G to make iteration steps converge much faster
+"""
+    
+function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 1000,hamiltonian_type = "Symmetry")
     N = Int(size(ih)[1]/2)
-    G = diagm([1.0 for i=1:2N])
+    η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
+    # S,V = eigen(η*ih)
+    r = [i/N/100 for i=1:N]
+    r = vcat(r,r)
+    # th = V*diagm(S+sort(vcat(-r,r)))*V^(-1)  #add perturbation
+    th = ih + diagm(r)
+
+    S,G = eigen(η*th)
+    for i = 1:2N  # normalization
+        c = transpose(G[:,i])*η*G[:,i]
+        G[:,i] .=  G[:,i]./sqrt(abs(c))
+    end
+
+    for i = 1:N  # d~d^{\dagger} construction
+        G[:,i] .= G[:,i+N]  #Why this construnction raise too large error?
+    end
+    if hamiltonian_type == "Symmetry"
+        G[1:N,N+1:2N].= G[N+1:2N,1:N]
+        G[N+1:2N,N+1:2N].= G[1:N,1:N]
+    else hamiltonian_type == "AntiSymmetry"
+        G[1:N,N+1:2N].= -G[N+1:2N,1:N]
+        G[N+1:2N,N+1:2N].= G[1:N,1:N]
+    end
+    # the previous steps would raise small error, we need to use given eigen solver to eliminate them.
+    return transpose(G)*ih*G,G
+end
+
+function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,zeromode=false,initialize=true,hamiltonian_type="AntiSymmetry")
+    N = Int(size(ih)[1]/2)
+    if initialize
+        ih, G = initialize_givens_eigen_solver(ih,hamiltonian_type=hamiltonian_type)
+    else 
+        G = diagm([1 for i =1:2N])
+    end
+
     temp_space = zeros(Float64,2N,2N)
     @inbounds for iter = 1:max_iter
+        # if norm(transpose(G)*diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))*G-diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))) > 0.001
+        #     # display(G)
+        #     @show N
+        #     @show norm(transpose(G)*diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))*G-diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N])))
+        # end
         temp_max,index = find_offdiagnoal_maximun(ih;tol)
         # print(temp_max,index,'\n')
         if abs(temp_max) < tol

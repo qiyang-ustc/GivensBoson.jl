@@ -3,7 +3,7 @@ using LinearAlgebra
 include("./GivensBoson.jl")
 using Main.GivensBoson
 
-Nrange = 4:4:100
+Nrange = 4:40:300
 result = zeros(size(Nrange)[1],4)
 for id in CartesianIndices(Nrange)
     N = Nrange[id]
