@@ -202,7 +202,7 @@ function given_abnormal_composite_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,te
     N = Int(size(H)[1]/2)
     a,b = i,j-N
     given_abnormal_rotation!(H,G,a,b+N,temp_space)
-    given_abnormal_rotation!(H,G,a+N,b,temp_space)
+   #given_abnormal_rotation!(H,G,a+N,b,temp_space)
 end
 
 
