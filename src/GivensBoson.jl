@@ -150,7 +150,7 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
     #     display(H)
     #     print("\n\n\n")
     # end
-    if  abs(t) > 0.9999999
+    if  abs(t) > 0.9999999 || isnan(t)
             # display([H[i,i] H[i,j];H[j,i] H[j,j]])
         # if abs(find_offdiagnoal_second_maximun(H))<1E-9 #zero mode
             H[i,j] = 0
