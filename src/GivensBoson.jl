@@ -143,6 +143,7 @@ function given_normal_composite_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp
 end
 
 function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix)
+    tol_sign(x) = abs(x)>1E-11 ? sign(x) : 0 
     N = Int(size(H)[1]/2)
     t = -2H[i,j]/(H[j,j]+H[i,i])
     # if atanh(t)>1
@@ -161,8 +162,8 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
             H[j,:] .= 0 
             H[:,i] .= 0 
             H[:,j] .= 0 
-            G[:,i] .= sign.(G[:,i])*0.5
-            G[:,j] .= sign.(G[:,i])*0.5
+            G[:,i] .= tol_sign.(G[:,i])*0.5
+            G[:,j] .= tol_sign.(G[:,i])*0.5
             return nothing
         # end
         t = sign(t)*0.9999999
