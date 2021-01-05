@@ -23,29 +23,12 @@ function find_offdiagnoal_maximun(ih::Matrix;tol = 1E-13) #use
     if temp_max<tol 
         if abnormal_index!=[1,1]
             index = abnormal_index
-            return ih[index...],index
+            return ih[index...],index, true
         else
-            return ih[1,2],[1,2]
+            return ih[1,2],[1,2], true
         end
     end
-    return ih[index...],index
-end
-
-function find_offdiagnoal_second_maximun(ih::Matrix) #use 
-    N = Int(size(ih)[1]/2)
-    index = [1,1]
-    temp_max = 0.0
-    temp_second = 0.0
-    @inbounds for i = 1:2N
-        @inbounds for j = i+1:2N
-            t = abs(ih[i,j])
-            if t>temp_max
-                temp_max = t
-                temp_second = temp_max
-            end
-        end
-    end
-    return temp_second
+    return ih[index...],index, false
 end
 
 function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) # keep i<j
@@ -57,24 +40,14 @@ function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) 
     end
 end
 
-function deal_zeromodes!(G::Matrix;tol_max = 1000.0)
-    N = Int(size(G)[1]/2)
-    for i =1:2N
-        if maximum(G[:,i])>tol_max
-            G[:,i] .= sign.(G[:,i])*0.5
-        end
-    end
-end
-
 """
 This function return a prepared G to make iteration steps converge much faster
 """
-    
-function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 100,hamiltonian_type = "Symmetry")
+function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 1000,hamiltonian_type = "Symmetry")
     N = Int(size(ih)[1]/2)
     η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
     # S,V = eigen(η*ih)
-    r = [i/N/100 for i=1:N]
+    r = [i/N/perturbation for i=1:N]
     r = vcat(r,r)
     # th = V*diagm(S+sort(vcat(-r,r)))*V^(-1)  #add perturbation
     th = ih + diagm(r)
@@ -99,7 +72,7 @@ function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 100,hamil
     return transpose(G)*ih*G,G
 end
 
-function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,zeromode=false,initialize=true,hamiltonian_type="AntiSymmetry")
+function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,initialize=true,hamiltonian_type="AntiSymmetry")
     N = Int(size(ih)[1]/2)
     if initialize
         ih, G = initialize_givens_eigen_solver(ih,hamiltonian_type=hamiltonian_type)
@@ -109,26 +82,14 @@ function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,zeromode=fal
 
     temp_space = zeros(Float64,2N,2N)
     @inbounds for iter = 1:max_iter
-        # if norm(transpose(G)*diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))*G-diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))) > 0.001
-        #     # display(G)
-        #     @show N
-        #     @show norm(transpose(G)*diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))*G-diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N])))
-        # end
-        temp_max,index = find_offdiagnoal_maximun(ih;tol)
-        # print(temp_max,index,'\n')
-        if abs(temp_max) < tol
-            if zeromode
-                deal_zeromodes!(G)
-            end
+        temp_max,index,flag = find_offdiagnoal_maximun(ih;tol)
+        if abs(temp_max) < tol || flag
             return ih,G
         end
         i,j = index
         given_transform!(ih,G,i,j,temp_space)
     end
     print("Iteration doesnot converge!\n")
-    if zeromode
-        deal_zeromodes!(G)
-    end
     return ih,G
 end
 
@@ -146,27 +107,9 @@ function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::
     tol_sign(x) = abs(x)>1E-11 ? sign(x) : 0 
     N = Int(size(H)[1]/2)
     t = -2H[i,j]/(H[j,j]+H[i,i])
-    # if atanh(t)>1
-    #     print(i,'\t',j,"\n")
-    #     display(H)
-    #     print("\n\n\n")
-    # end
     if  abs(t) > 0.9999999 || isnan(t)
-            # display([H[i,i] H[i,j];H[j,i] H[j,j]])
-        # if abs(find_offdiagnoal_second_maximun(H))<1E-9 #zero mode
-            H[i,j] = 0
-            H[j,i] = 0
-            H[i,i] = 0
-            H[j,j] = 0
-            H[i,:] .= 0 
-            H[j,:] .= 0 
-            H[:,i] .= 0 
-            H[:,j] .= 0 
-            G[:,i] .= tol_sign.(G[:,i])*0.5
-            G[:,j] .= tol_sign.(G[:,i])*0.5
+            error("Givens Rotation fail!")
             return nothing
-        # end
-        t = sign(t)*0.9999999
     end
     θ = 0.5*atanh(t)
     c,s = cosh(θ),sinh(θ)
