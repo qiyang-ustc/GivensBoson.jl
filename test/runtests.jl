@@ -1,164 +1,69 @@
 using GivensBoson
 using Test
+using Random
 using LinearAlgebra
-@testset "GivensBoson.jl" begin
-    for N = 4:2:60
-        ϵ = 1E-11
-        η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-        A,B = rand(N,N),rand(N,N)
-        A,B = map(x->transpose(x)*x,[A,B])
-        A = [A B;transpose(B) A]
-        A = A./maximum(A)/10
-        r = [rand()+0.5 for i =1:N]
-        r = vcat(r,r)
-        r = diagm(r)
-        A = r+A        
+include("./testutil.jl")
+include("./function_test.jl")
+
+@testset "One Zero Mode Cases" begin
+    A = [1 1;1 1]
+    ϵ = 1E-12
+    S,V = given_eigen_solver(copy(A),hamiltonian_type="Symmetry",zeromode=true)
+    # do not deal zero modes. Canonical and Right
+    test_canonicality(V,ϵ)
+    test_right(S,V,A,ϵ)
+    test_full_right(S,V,A,ϵ)
+
+    deal_zeromodes!(S,V,type=:abnormal)
+
+    # deal zero modes. Not canonical but diagonal.
+    test_diag(S,ϵ)
+    test_right(S,V,A,ϵ)
+    #TODO: zeromode canonicality
+
+    #TODO: if type=normal test
+end
+
+@testset "GivensBoson.jl - random case with partile-hole symmetry" begin
+    for N = 4:2:40
+        Random.seed!(42)
+        ϵ = 1E-9
+        @show N
+        A = test_random_particle_hole_positive_definite_hamiltonian(N)
         origin_A = copy(A)
-        S,V = given_eigen_solver(A,hamiltonian_type="Symmetry")
-        η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-        @test norm(transpose(V)*η*V-η)<ϵ
-        @test norm(S-diagm(diag(S)))<ϵ
-        @test norm(transpose(V)*origin_A*V-S)<ϵ
+        S,V = given_eigen_solver(origin_A,hamiltonian_type="Symmetry")
+        test_canonicality(V,ϵ)
+        test_diag(S,ϵ)
+        test_right(S,V,A,ϵ)
     end
 end
 
-@testset "GivensBoson -Schwinger Boson PBC" begin
-for N = 4:2:100
-    A = 1
-    λ = 1
-    bc = "PBC"
-    begin
-        Q = zeros(N,N)
-        for id in CartesianIndices((1:N,1:N))
-            if id[1]-id[2]==1
-                Q[id] = 1.0*A
-            elseif id[2] - id[1] ==1
-                Q[id] = -1.0*A
-            end
-        end
+@testset "GivensBoson -Schwinger Boson PBC- AntiSymmetry" begin
+    for N = 4:2:60
+        ϵ = 1E-9
+        A = schwinger_boson_hamiltonian(N,"PBC")
+        origin_A = copy(A)
+        S,V = given_eigen_solver(A,hamiltonian_type="AntiSymmetry")
 
-        if bc == "PBC"
-            Q[N,1] = -1.0*A
-            Q[1,N] =  1.0*A
-        end
-        Q = Q/2.0
-        Q
-    end
-    ϵ = 5*1E-10
-    Lambda = diagm([λ for i = 1:N])
-    M = [Lambda Q;transpose(Q) Lambda]
-    A = M
-    origin_A = copy(A)
-    S,V = given_eigen_solver(A,zeromode=(N%4==0),hamiltonian_type="AntiSymmetry")
-    η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-    test_η = transpose(V)*η*V
-    if N%4 == 0 && bc == "PBC"
-        @test abs(sum(abs.(test_η-η))-4)< 1E-8 # 4 zero modes check
-        for i = 1:2N
-            if abs(test_η[i,i])<1E-10
-                test_η[i,i] = i>N ? -1.0 : 1.0
-            end
-        end
-    end
-    @test norm(test_η-η)<ϵ
-    @test norm(S-diagm(diag(S)))<ϵ
-    @test norm(transpose(V)*origin_A*V-S)<ϵ
+        test_canonicality_zeromode(V,ϵ)
+        test_right(S,V,A,ϵ)
+        test_diag(S,ϵ)
     end
 end
 
 
-@testset "GivensBoson -Schwinger Boson OBC" begin
-for N = 4:2:256
-    A = 1
-    λ = 1
-    bc = "OBC"
-    begin
-        Q = zeros(N,N)
-        for id in CartesianIndices((1:N,1:N))
-            if id[1]-id[2]==1
-                Q[id] = 1.0*A
-            elseif id[2] - id[1] ==1
-                Q[id] = -1.0*A
-            end
-        end
+@testset "GivensBoson -Schwinger Boson OBC- AntiSymmetry" begin
+    for N = 4:2:64
+        ϵ = 1E-9
+        A = schwinger_boson_hamiltonian(N,"OBC")
+        origin_A = copy(A)
+        S,V = given_eigen_solver(A,hamiltonian_type="AntiSymmetry")
 
-        if bc == "PBC"
-            Q[N,1] = -1.0*A
-            Q[1,N] =  1.0*A
-        end
-        Q = Q/2.0
-        Q
-    end
-    ϵ = 5*1E-10
-    Lambda = diagm([λ for i = 1:N])
-    M = [Lambda Q;transpose(Q) Lambda]
-    A = M
-    origin_A = copy(A)
-    S,V = given_eigen_solver(A,zeromode=(N%4==0),hamiltonian_type="AntiSymmetry")
-    η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-    test_η = transpose(V)*η*V
-    @test abs(sum(abs.(test_η-η)))< 1E-8 # 4 zero modes check
-    if N%4 == 0 && bc == "PBC"
-        for i = 1:2N
-            if abs(test_η[i,i])<1E-10
-                test_η[i,i] = i>N ? -1.0 : 1.0
-            end
-        end
-    end
-    @test norm(test_η-η)<ϵ
-    @test norm(S-diagm(diag(S)))<ϵ
-    @test norm(transpose(V)*origin_A*V-S)<ϵ
+        test_canonicality_zeromode(V,ϵ)
+        test_right(S,V,A,ϵ)
+        test_diag(S,ϵ)
     end
 end
-
-
-@testset "ReCanonicalize.jl" begin
-    include("../src/ReCanonicalize.jl")
-
-    A = 1
-    λ = 1
-    N = 20
-    bc = "PBC"
-    begin
-        Q = zeros(N,N)
-        for id in CartesianIndices((1:N,1:N))
-            if id[1]-id[2]==1
-                Q[id] = 1.0*A
-            elseif id[2] - id[1] ==1
-                Q[id] = -1.0*A
-            end
-        end
-        
-        if bc == "PBC"
-            Q[N,1] = -1.0*A
-            Q[1,N] =  1.0*A
-        end
-        Q = Q/2.0
-        Q
-    end
-    Lambda = diagm([λ for i = 1:N])
-    M = [Lambda Q;transpose(Q) Lambda]
-    A = M
-    origin_A = copy(A)
-    # S,V = given_eigen_solver(A)
-    ϵ = 1E-6
-    η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-    origin_A = copy(A)
-    S,V = recanonicalize(A,"AntiSymmetry")
-    η = diagm(vcat([1.0 for i=1:N],[-1.0 for i=1:N]))
-    temp = adjoint(V)*η*V-η
-    for id in CartesianIndices(temp)
-            if (abs(temp[id])-1)<ϵ
-            temp[id] = 0
-        end
-    end
-    # display(S)
-    @test norm(temp)<ϵ
-    # display(transpose(V)*origin_A*V-diagm(S))
-    # display(V)
-    # display(adjoint(V)*η*V-η)
-    @test norm(adjoint(V)*origin_A*V-diagm(S))<ϵ
-end 
 
 
 # @testset "ReCanonicalize - GivensBoson Equal OBC test" begin

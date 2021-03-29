@@ -2,33 +2,57 @@ module GivensBoson
 export given_eigen_solver
 using LinearAlgebra
 
-function find_offdiagnoal_maximun(ih::Matrix;tol = 1E-13) #use 
+"""
+    find the maximum-abs elements which is off-diagonal of ih.
+    [If abs(a)<tol. a can be seen as zero.]
+    return the value and the row and column index. 
+    and a. and If there is any off-diagonal element. 
+    
+    Input manual:
+        if zeromode = true: this function will save zero mode and avoid to return imformation about them.
+        if zeromode = false: we suppose there is no zero mode in this problem.
+    
+    Output Format:value, index,flag
+            
+        value: ih[index...]
+        flag:
+            flag = 1: there is a non-zero-mode element we need to report.
+            flag = 2: there is a zero mode we need to report.
+            flag = 3: there is nothing off-diagonal.
+"""
+function find_offdiagonal_maximun(ih::Matrix;tol = 1E-13,zeromode=false) #use 
     N = Int(size(ih)[1]/2)
     index = [1,1]
     temp_max = 0.0
     abnormal_index = [1,1]
+    flag = 1 
+
     @inbounds for i = 1:2N
-        @inbounds for j = i+1:2N
+        @inbounds for j = i+1:2N # iterate up-triangle part.
             t = abs(ih[i,j])
             if t>temp_max
-                if abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.45
+                if zeromode && abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.49
                     abnormal_index = [i,j]
                 else
                     temp_max = t
                     index = [i,j]
-                end    
+                end
             end
         end
     end
-    if temp_max<tol 
-        if abnormal_index!=[1,1]
-            index = abnormal_index
-            return ih[index...],index, true
-        else
-            return ih[1,2],[1,2], true
-        end
+
+    if temp_max < tol && abnormal_index==[1,1] # true: all non-zeromode elements are zero
+        return 0.0,[1,1],3
     end
-    return ih[index...],index, false
+
+    if temp_max < tol && abnormal_index!=[1,1]
+        index = abnormal_index
+        return ih[index...],index,2
+    end
+
+    if temp_max > tol
+        return ih[index...],index,1
+    end 
 end
 
 function given_transform!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix) # keep i<j
@@ -72,7 +96,104 @@ function initialize_givens_eigen_solver(ih::Matrix;perturbation::Int = 1000,hami
     return transpose(G)*ih*G,G
 end
 
-function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,initialize=true,hamiltonian_type="AntiSymmetry")
+export deal_zeromodes
+
+"""
+    A normal output result for given_eigen_solver is ih and V (may include zero mode).
+    We have two mathod to deal with it.
+    type=normal:    
+        This function provide API to elimante zeromode by "math-well-defined rotation(physically-ill)"
+   
+            a = [1 -1; 1 1] and
+            [0 0;0 4 ] = a^T*[1 -1;-1 1]*a
+            [4 0;0 0 ] = a^T*[1  1; 1 1]*a
+
+    
+    type=abnormal:    
+        This function provide API to elimante zeromode by "math-ill-defined rotation(physical-well)"
+   
+            a = [1 1; 1 1] and
+            [0 0;0 0] = a^T*[1 -1;-1 1]*a
+            a = [1 -1; -1 1]
+            [0 0;0 0] = a^T*[1  1; 1 1]*a        
+"""
+deal_zeromodes(ih::Matrix,G::Matrix;tol=1E-13,type=:normal) = deal_zeromodes!(copy(ih),copy(G),tol=tol,type=type)
+
+export deal_zeromodes!
+function deal_zeromodes!(ih::Matrix,G::Matrix;tol=1E-13,type=:normal)
+    if type == :normal
+        return deal_zeromodes_normal!(ih,G,tol=tol)
+    elseif type == :abnormal
+        return deal_zeromodes_abnormal!(ih,G,tol=tol)
+    else
+        error("deal_zeromodes: Invalid type:$type")
+    end
+end
+
+
+function deal_zeromodes_abnormal!(ih::Matrix,G::Matrix;tol=1E-13)
+    for iter = 1:1000
+        N = size(G)[1]
+        temp_max,index,flag = find_offdiagonal_maximun(ih;tol=tol,zeromode=true)
+        if flag == 3
+            break
+        end
+
+        i,j = index
+        sgn = sign(ih[i,i]/ih[i,j])
+
+        tG = Matrix{Float64}(I,N,N)
+        tG[i,j] = -1*sgn
+        tG[j,i] = -1*sgn
+        ih[i,j]=0
+        ih[j,i]=0
+        G .= G*tG
+
+        if sgn<0
+            ih[j,j]=0
+            ih[i,i]=0
+        else
+            ih[i,i]=0
+            ih[j,j]=0
+        end
+    end
+    return ih,G
+end
+
+function deal_zeromodes_normal!(ih::Matrix,G::Matrix;tol=1E-13)
+    for iter = 1:1000
+        N = size(G)[1]
+        temp_max,index,flag = find_offdiagonal_maximun(ih;tol=tol,zeromode=true)
+        if flag == 3
+            break
+        end
+
+        i,j = index
+        sgn = sign(ih[i,i]/ih[i,j])
+
+        tG = Matrix{Float64}(I,N,N)
+        tG[i,j] = -1
+        tG[j,i] = 1
+        ih[i,j]=0
+        ih[j,i]=0
+        G .= G*tG
+
+        if sgn<0
+            ih[j,j]=4*ih[i,i]    
+            ih[i,i]=0
+        else
+            ih[i,i]=4*ih[j,j]    
+            ih[j,j]=0
+        end
+    end
+    return ih,G
+end
+
+
+"""
+    Givens Roation Eigen solver; Mathematical motivation and derivation can be found in notes dir:
+"""
+function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,initialize=true,hamiltonian_type="AntiSymmetry",zeromode=false)
     N = Int(size(ih)[1]/2)
     if initialize
         ih, G = initialize_givens_eigen_solver(ih,hamiltonian_type=hamiltonian_type)
@@ -82,8 +203,11 @@ function given_eigen_solver(ih::Matrix ;max_iter=10000000,tol=1E-13,initialize=t
 
     temp_space = zeros(Float64,2N,2N)
     @inbounds for iter = 1:max_iter
-        temp_max,index,flag = find_offdiagnoal_maximun(ih;tol)
-        if abs(temp_max) < tol || flag
+        temp_max,index,flag = find_offdiagonal_maximun(ih;tol=tol,zeromode=true)
+        if abs(temp_max) < tol || flag!=1
+            # if zeromode && flag == 2
+            #     deal_zeromodes!(ih,G) # make ih diagonalized, then G will be not canonical.
+            # end
             return ih,G
         end
         i,j = index
@@ -106,7 +230,7 @@ end
 function given_abnormal_rotation!(H::Matrix,G::Matrix,i::Int,j::Int,temp_space::Matrix)
     tol_sign(x) = abs(x)>1E-11 ? sign(x) : 0 
     N = Int(size(H)[1]/2)
-    t = -2H[i,j]/(H[j,j]+H[i,i])
+    t = -2H[i,j]/(H[j,j]+H[i,i])    
     if  abs(t) > 0.9999999 || isnan(t)
             error("Givens Rotation fail!")
             return nothing
