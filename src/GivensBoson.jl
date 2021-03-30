@@ -31,7 +31,7 @@ function find_offdiagonal_maximun(ih::Matrix;tol = 1E-13,zeromode=false) #use
         @inbounds for j = i+1:2N # iterate up-triangle part.
             t = abs(ih[i,j])
             if t>temp_max
-                if zeromode && abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.49
+                if zeromode && abs(ih[i,j]/(ih[j,j]+ih[i,i]))>0.4999
                     abnormal_index = [i,j]
                 else
                     temp_max = t
